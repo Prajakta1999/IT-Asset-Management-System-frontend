@@ -6,8 +6,7 @@ import http from '@/api/http';
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: localStorage.getItem('accessToken') || null,
-    role: localStorage.getItem('role') || null, 
-    userEmail: null,
+    role: localStorage.getItem('role') || null,
   }),
 
   getters: {
@@ -18,48 +17,54 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     setToken(token) {
-  this.accessToken = token;
-  if (token) {
-    const role = (extractRole(token) || '').toUpperCase();
-    console.log("Decoded role from JWT:", role);   // 👈 debug
-    this.role = role;
-    localStorage.setItem('accessToken', token);
-    localStorage.setItem('role', role);
-  } else {
-    this.role = null;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('role');
-  }
-},
+      this.accessToken = token;
+      if (token) {
+        // The role from your JWT might not have the "ROLE_" prefix, let's handle that.
+        const rawRole = (extractRole(token) || '').replace('ROLE_', '').toUpperCase();
+        this.role = rawRole;
+        localStorage.setItem('accessToken', token);
+        localStorage.setItem('role', rawRole);
+      } else {
+        this.role = null;
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('role');
+      }
+    },
 
+    async doLogin({ email, password }) {
+      // Your backend wraps the successful response in a `data` object
+      const response = await http.post('/auth/login', { email, password });
+      
+      // The actual token is nested inside response.data.data.accessToken
+      const token = response.data?.data?.accessToken;
 
-   async doLogin({ email, password }) {
-  const { data } = await http.post('/auth/login', { email, password });
-  
-  // FIX: token is inside data.data.accessToken
-  const token = data?.data?.accessToken;
+      if (!token) {
+        // Add a check to ensure we actually got a token
+        throw new Error("Login failed: No token received from server.");
+      }
 
-  console.log("Raw login response:", data);  // 👈 debug
-  console.log("Extracted token:", token);    // 👈 debug
+      this.setToken(token);
 
-  this.setToken(token);
-
-  const role = (extractRole(token) || '').toUpperCase();
-  console.log("Redirecting based on role:", role);  // 👈 debug
-  if (role === 'EMPLOYEE') router.replace({ name: 'instructor' });
-  else router.replace({ name: 'employee' });
-}
-,
+      // (FIX) Use the correct route names defined in your router/index.js
+      if (this.isAdmin) {
+        router.replace({ name: 'admin-dashboard' });
+      } else if (this.isEmployee) {
+        router.replace({ name: 'employee-dashboard' });
+      } else {
+        // If the role is somehow unknown, fall back to the login page
+        router.replace({ name: 'login' });
+      }
+    },
 
     async doSignup(payload) {
       await http.post('/auth/signup', payload);
-      // after signup, go to login
       router.replace({ name: 'login' });
     },
 
-    logout(forceToLogin = false) {
+    logout(forceToLogin = true) {
       this.setToken(null);
       if (forceToLogin) router.replace({ name: 'login' });
     },
   },
 });
+

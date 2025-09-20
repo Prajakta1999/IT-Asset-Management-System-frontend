@@ -1,71 +1,51 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth';
 
+// Create an Axios instance with the base URL from your environment variables
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true, // needed so the refresh cookie is sent
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-let isRefreshing = false;
-let queue = [];
-
-function resolveQueue(error, token = null) {
-  queue.forEach(p => (error ? p.reject(error) : p.resolve(token)));
-  queue = [];
-}
-
-// Attach token
-http.interceptors.request.use(config => {
-  const auth = useAuthStore();
-  if (auth.accessToken) {
-    config.headers.Authorization = `Bearer ${auth.accessToken}`;
-  }
-  return config;
-});
-
-// Handle 401 -> try /auth/refresh -> retry once
-http.interceptors.response.use(
-  res => res,
-  async error => {
+// IMPORTANT: This interceptor attaches the token to every outgoing request.
+http.interceptors.request.use(
+  (config) => {
+    // Before the request is sent, get the authentication store.
+    // This must be done inside the function to avoid issues with Pinia's setup timing.
     const auth = useAuthStore();
-    const original = error.config;
+    const token = auth.accessToken;
 
-    if (error.response?.status === 401 && !original._retry) {
-      if (isRefreshing) {
-        // queue requests until refresh resolves
-        return new Promise((resolve, reject) => {
-          queue.push({ resolve, reject });
-        }).then(token => {
-          original.headers.Authorization = `Bearer ${token}`;
-          return http(original);
-        });
-      }
-
-      original._retry = true;
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-        const newToken = data.accessToken || data.token || data.access_token;
-        auth.setToken(newToken);
-        resolveQueue(null, newToken);
-        original.headers.Authorization = `Bearer ${newToken}`;
-        return http(original);
-      } catch (e) {
-        resolveQueue(e, null);
-        auth.logout(true);
-        return Promise.reject(e);
-      } finally {
-        isRefreshing = false;
-      }
+    // If a token exists, add it to the Authorization header.
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    return config;
+  },
+  (error) => {
+    // Handle any request errors.
+    return Promise.reject(error);
+  }
+);
 
+// Optional but Recommended: This interceptor handles cases where the token has expired.
+http.interceptors.response.use(
+  (response) => {
+    // Any status code within the range of 2xx will trigger this function.
+    return response;
+  },
+  (error) => {
+    // If the API returns a 401 Unauthorized error, it means the token is invalid.
+    if (error.response && error.response.status === 401) {
+      const auth = useAuthStore();
+      // Log the user out, which will clear the bad token and redirect to the login page.
+      auth.logout(true); 
+    }
     return Promise.reject(error);
   }
 );
 
 export default http;
+

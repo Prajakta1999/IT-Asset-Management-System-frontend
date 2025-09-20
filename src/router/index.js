@@ -1,50 +1,80 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/store/auth';
 
-const LoginView = () => import('@/pages/LoginView.vue');
-const SignupView = () => import('@/pages/SignupView.vue');
-const DashboardStudent = () => import('@/pages/DashboardStudent.vue');
-const DashboardInstructor = () => import('@/pages/DashboardInstructor.vue');
-const StudentCourseView = () => import('@/pages/StudentCourseView.vue');
-const NotFound = () => import('@/pages/NotFound.vue');
+// Import your page/view components
+import LoginView from '@/pages/LoginView.vue';
+import SignupView from '@/pages/SignupView.vue';
+import AdminDashboard from '@/pages/AdminDashboard.vue';
+import EmployeeDashboard from '@/pages/EmployeeDashboard.vue';
+import NotFound from '@/pages/NotFound.vue';
+
+const routes = [
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+    meta: { requiresGuest: true } // Users already logged in shouldn't see this
+  },
+  {
+    path: '/signup',
+    name: 'signup',
+    component: SignupView,
+    meta: { requiresGuest: true }
+  },
+  {
+    path: '/admin',
+    name: 'admin-dashboard', // The correct name for the admin route
+    component: AdminDashboard,
+    meta: { requiresAuth: true, role: 'ADMIN' } // Protect this route
+  },
+  {
+    path: '/employee',
+    name: 'employee-dashboard', // The correct name for the employee route
+    component: EmployeeDashboard,
+    meta: { requiresAuth: true, role: 'EMPLOYEE' } // Protect this route
+  },
+  {
+    // Redirect the root path to the login page
+    path: '/',
+    redirect: '/login'
+  },
+  { 
+    // Catch-all 404 route
+    path: '/:pathMatch(.*)*', 
+    name: 'NotFound', 
+    component: NotFound 
+  }
+];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes: [
-    { path: '/', redirect: '/login' },
-    { path: '/login', name: 'login', component: LoginView, meta: { guestOnly: true } },
-    { path: '/signup', name: 'signup', component: SignupView, meta: { guestOnly: true } },
-    { path: '/student', name: 'student', component: DashboardStudent, meta: { requiresAuth: true, role: 'EMPLOYEE' } },
-    { 
-      path: '/courses/:id/view', 
-      name: 'student-course-view', 
-      component: StudentCourseView, 
-      meta: { requiresAuth: true, role: 'EMPLOYEE' } 
-    },
-    { path: '/instructor', name: 'instructor', component: DashboardInstructor, meta: { requiresAuth: true, role: 'ADMIN' } },
-    { path: '/:pathMatch(.*)*', name: 'notfound', component: NotFound },
-  ],
+  routes,
 });
 
-// Navigation guard with corrected route names
-router.beforeEach(async (to) => {
+// Navigation Guard - This is a security checkpoint for your routes
+router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
-
-  if (to.meta.guestOnly && auth.isAuthenticated) {
-    // FIX: Changed 'admin' to 'instructor' and 'employee' to 'student'
-    return auth.role === 'ADMIN' ? { name: 'instructor' } : { name: 'student' };
-  }
+  const isAuthenticated = auth.isAuthenticated;
+  const userRole = auth.role;
 
   if (to.meta.requiresAuth) {
-    if (!auth.isAuthenticated) {
-      return { name: 'login', query: { next: to.fullPath } };
+    if (!isAuthenticated) {
+      // User is not logged in, redirect to login
+      next({ name: 'login' });
+    } else if (to.meta.role && to.meta.role !== userRole) {
+      // User is logged in but doesn't have the required role
+      // Redirect them to their own dashboard or a 'not-authorized' page
+      next(userRole === 'ADMIN' ? { name: 'admin-dashboard' } : { name: 'employee-dashboard' });
+    } else {
+      // User is authenticated and has the correct role
+      next();
     }
-
-    const need = (to.meta.role || '').toUpperCase();
-    if (need && auth.role !== need) {
-      // FIX: Changed 'admin' to 'instructor' and 'employee' to 'student'
-      return { name: auth.role === 'ADMIN' ? 'instructor' : 'student' };
-    }
+  } else if (to.meta.requiresGuest && isAuthenticated) {
+    // If a logged-in user tries to visit login/signup, redirect them away
+    next(userRole === 'ADMIN' ? { name: 'admin-dashboard' } : { name: 'employee-dashboard' });
+  } else {
+    // For public pages
+    next();
   }
 });
 

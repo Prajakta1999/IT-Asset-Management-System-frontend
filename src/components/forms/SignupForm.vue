@@ -9,7 +9,12 @@
       </select>
     </div>
     <input class="input" type="email" v-model.trim="email" placeholder="Email" required />
+    
+    <!-- (NEW) Phone Number Input -->
+    <input class="input" type="tel" v-model.trim="phoneNumber" placeholder="Phone Number" required />
+    
     <input class="input" type="password" v-model.trim="password" placeholder="Password" required />
+    
     <button class="btn primary" :disabled="loading" type="submit">
       {{ loading ? 'Creating...' : 'Sign up' }}
     </button>
@@ -26,8 +31,18 @@ const name = ref('');
 const email = ref('');
 const password = ref('');
 const role = ref('');
+// (NEW) Add ref for phone number
+const phoneNumber = ref('');
 
 function emitSubmit() {
-  emit('submit', { name: name.value, email: email.value, password: password.value, role: role.value });
+  // (NEW) Add phoneNumber to the emitted payload
+  emit('submit', { 
+    name: name.value, 
+    email: email.value, 
+    password: password.value, 
+    role: role.value,
+    phoneNumber: phoneNumber.value 
+  });
 }
 </script>
+
