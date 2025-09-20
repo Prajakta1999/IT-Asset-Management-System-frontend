@@ -26,7 +26,7 @@ export const deleteCourse = (courseId) => {
 };
 
 
-// --- Student Course Methods ---
+// --- employee Course Methods ---
 export const getAvailableCourses = () => {
   return http.get('/enrollments/student/available-courses');
 };  

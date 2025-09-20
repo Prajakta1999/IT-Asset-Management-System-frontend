@@ -6,14 +6,14 @@ import http from '@/api/http';
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: localStorage.getItem('accessToken') || null,
-    role: localStorage.getItem('role') || null, // 'STUDENT' or 'INSTRUCTOR'
+    role: localStorage.getItem('role') || null, 
     userEmail: null,
   }),
 
   getters: {
     isAuthenticated: state => !!state.accessToken && !isExpired(state.accessToken),
-    isStudent: state => state.role === 'STUDENT',
-    isInstructor: state => state.role === 'INSTRUCTOR',
+    isEmployee: state => state.role === 'EMPLOYEE',
+    isAdmin: state => state.role === 'ADMIN',
   },
 
   actions: {
@@ -46,8 +46,8 @@ export const useAuthStore = defineStore('auth', {
 
   const role = (extractRole(token) || '').toUpperCase();
   console.log("Redirecting based on role:", role);  // 👈 debug
-  if (role === 'INSTRUCTOR') router.replace({ name: 'instructor' });
-  else router.replace({ name: 'student' });
+  if (role === 'EMPLOYEE') router.replace({ name: 'instructor' });
+  else router.replace({ name: 'employee' });
 }
 ,
 

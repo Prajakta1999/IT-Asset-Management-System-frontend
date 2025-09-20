@@ -4,8 +4,8 @@
       <input class="input" type="text" v-model.trim="name" placeholder="Full name" required />
       <select class="input" v-model="role" required>
         <option disabled value="">Select role</option>
-        <option value="STUDENT">Student</option>
-        <option value="INSTRUCTOR">Instructor</option>
+        <option value="EMPLOYEE">Employee</option>
+        <option value="ADMIN">Admin</option>
       </select>
     </div>
     <input class="input" type="email" v-model.trim="email" placeholder="Email" required />
