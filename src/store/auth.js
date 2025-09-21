@@ -17,7 +17,14 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    setToken(token) {
+   // (NEW) Action to check token validity on startup
+    init() {
+      if (this.accessToken && isExpired(this.accessToken)) {
+        console.log("Token from localStorage has expired. Clearing auth state.");
+        this.logout(false); // Call logout without redirecting
+      }
+    },
+  setToken(token) {
   this.accessToken = token;
   if (token) {
     const role = (extractRole(token) || '').toUpperCase();
@@ -63,3 +70,6 @@ export const useAuthStore = defineStore('auth', {
     },
   },
 });
+
+// Run the initialization check as soon as the store is defined
+// useAuthStore().init();
